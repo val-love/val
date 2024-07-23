@@ -1,52 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Account Generator</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        label {
-            display: block;
-            margin-top: 10px;
-        }
-        input {
-            margin-bottom: 10px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Create an Account</h1>
-    <form id="accountForm">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required><br>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required><br>
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" required><br>
-        <button type="submit">Create Account</button>
-    </form>
-    <script>
-        document.getElementById('accountForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            
-            const formData = new FormData(event.target);
-            const data = Object.fromEntries(formData.entries());
-            
-            const response = await fetch('/api/createAccount', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            });
+const { Builder, By } = require('selenium-webdriver');
+const crypto = require('crypto');
 
-            const result = await response.json();
-            alert(result.message);
-        });
-    </script>
-</body>
-</html>
+const algorithm = 'aes-256-cbc';
+const iv = crypto.randomBytes(16);
+
+// Generate or load encryption key
+const key = crypto.randomBytes(32);
+
+function encrypt(text) {
+    let cipher = crypto.createCipheriv(algorithm, Buffer.from(key), iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+async function createAccount(username, password, email) {
+    let driver = await new Builder().forBrowser('chrome').build();
+
+    try {
+        await driver.get('https://scratch.mit.edu/join');
+
+        await driver.findElement(By.name('username')).sendKeys(username);
+        await driver.findElement(By.name('password')).sendKeys(password);
+        await driver.findElement(By.name('password-confirmation')).sendKeys(password);
+        await driver.findElement(By.name('birth-month')).sendKeys('January');
+        await driver.findElement(By.name('birth-year')).sendKeys('2000');
+        await driver.findElement(By.name('email')).sendKeys(email);
+        await driver.findElement(By.className('button')).click();
+
+        // Wait for some time to ensure the form is submitted
+        await driver.sleep(5000);
+
+        return { message: 'Account created successfully!' };
+    } finally {
+        await driver.quit();
+    }
+}
+
+exports.handler = async function(event, context) {
+    const { username, password, email } = JSON.parse(event.body);
+
+    try {
+        await createAccount(username, password, email);
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Account created successfully!' }),
+        };
+    } catch (error) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: error.message }),
+        };
+    }
+};
