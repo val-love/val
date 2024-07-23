@@ -6,7 +6,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "selenium-webdriver": "^4.21.0",
-    "crypto": "optional"
+    "selenium-webdriver": "^4.21.0"
   }
 }
